@@ -1,7 +1,10 @@
 import requests
 import psycopg2
 from datetime import datetime
+import logging
+import sys
 
+logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 # API key
 api_key = "gh3jLR00nD4jPbv2Z4GUEwkWfGtyQvz96Kc3JeHTDa0="
 
@@ -11,6 +14,7 @@ base_url = "https://data.usajobs.gov/api/search"
 # Search criteria
 search_params = {
     "Keyword": "data engineering",
+    "ResultsPerPage": "500",
 }
 
 sql_create_table_script_names = [
@@ -67,8 +71,8 @@ def perform_etl():
                 position_id = job["MatchedObjectDescriptor"]["PositionID"]
                 position_title = job["MatchedObjectDescriptor"]["PositionTitle"]
                 position_uri = job["MatchedObjectDescriptor"]["PositionURI"]
-                position_low_grade = job["MatchedObjectDescriptor"]["UserArea"]["Details"]["LowGrade"]
-                position_high_grade = job["MatchedObjectDescriptor"]["UserArea"]["Details"]["HighGrade"]
+                position_low_grade = int(job["MatchedObjectDescriptor"]["UserArea"]["Details"]["LowGrade"]) if job["MatchedObjectDescriptor"]["UserArea"]["Details"]["LowGrade"].isdigit() else 0
+                position_high_grade = int(job["MatchedObjectDescriptor"]["UserArea"]["Details"]["HighGrade"]) if job["MatchedObjectDescriptor"]["UserArea"]["Details"]["HighGrade"].isdigit() else 0
                 position_st_dt = job["MatchedObjectDescriptor"]["PositionStartDate"]
                 position_end_dt = job["MatchedObjectDescriptor"]["PositionEndDate"]
                 publication_st_dt = job["MatchedObjectDescriptor"]["PublicationStartDate"]
@@ -126,7 +130,7 @@ def perform_etl():
 
                         pgdb_cursor.execute(insert_query, (parent_id, offering_name, offering_code, datetime.now()))          
                 else:
-                    print("record exists")
+                    logging.debug(str(existing_record) + " record exists")
             pgdb_conn.commit()
             print("ETL process completed successfully.")
             
@@ -143,7 +147,7 @@ def create_update_view():
             pgdb_cursor.execute(create_view_query)
             pgdb_conn.commit()
 
-        print("View created successfully!")
+        logging.debug("View created successfully!")
 
     except (Exception, psycopg2.Error) as error:
         print("Error:", error)
